@@ -1,0 +1,11 @@
+# roles/ROLENAME/vars/RedHat.yml
+#
+# Distribution-specific variables for RHEL, CentOS, ...
+---
+
+ipsec_psk: "ipsec_psk"
+users_list:
+  - { username: "username1", password: "password1" }
+  - { username: "username2", password: "password2" }
+
+
