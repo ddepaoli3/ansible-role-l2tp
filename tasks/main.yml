@@ -1,0 +1,65 @@
+---
+
+- include_vars: users.yml
+- include_vars: default.yml
+
+- name: Install base packages
+  apt: name={{ item }} state=latest update_cache=yes
+  with_items:
+    - openswan
+    - xl2tpd
+
+- name: Configure file for vpn
+  template: src=templates/ipsec.conf.template dest=/etc/ipsec.conf
+
+- name: Configure secrets file
+  template: src=templates/ipsec.secrets.template dest=/etc/ipsec.secrets
+
+- name: Configure xl2 
+  template: src=templates/xl2tpd.conf.template dest=/etc/xl2tpd/xl2tpd.conf
+
+- name: Configure xl2 option
+  template: src=templates/options.xl2tpd.template dest=/etc/ppp/options.xl2tpd
+
+- name: Configure secrets credentials
+  template: src=templates/chap-secrets.template dest=/etc/ppp/chap-secrets
+
+# - iptables: table=nat chain=POSTROUTING source=192.168.42.0/24 out_interface=eth0 jump=MASQUERADE
+#   become: yes
+- command: iptables -t nat -A POSTROUTING -s 192.168.42.0/24 -o eth0 -j MASQUERADE
+- command: echo 1 > /proc/sys/net/ipv4/ip_forward
+- name: Save Netfilter Rules
+  shell:  iptables-save > /etc/iptables.rules
+
+- name: Autoload ip_forward
+  template: src=templates/iptablesload.template dest=/etc/network/if-pre-up.d/iptablesload mode=a+x
+
+- service: name={{ item }} state=restarted
+  with_items:
+    - ipsec
+    - xl2tpd
+
+- name: Install base packages
+  apt: name={{ item }} state=latest update_cache=yes
+  with_items:
+    - pptpd
+
+- command: echo localip 10.0.0.1 >> /etc/pptpd.conf
+- command: echo remoteip 10.0.0.100-200 >> /etc/pptpd.conf
+
+- command: echo ms-dns 8.8.8.8 >> /etc/ppp/pptpd-options
+- command: echo ms-dns 8.8.4.4 >> /etc/ppp/pptpd-options
+- command: echo net.ipv4.ip_forward = 1 >> /etc/sysctl.conf
+- service: name={{ item }} state=restarted
+  with_items:
+    - pptpd
+
+- command: iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+# - iptables: table=nat chain=POSTROUTING out_interface=eth0 jump=MASQUERADE
+#   become: yes
+
+- command: sysctl -p
+- command: iptables-save
+
+
+
